@@ -1,0 +1,44 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Upload Build to EC2 via SSM
+        uses: aws-actions/aws-ssm-run-command@v1
+        with:
+          targets: i-0565844662ab697bd  # EC2 Instance ID
+          document-name: AWS-RunShellScript
+          comment: "Deploy frontend"
+          parameters: |
+            commands=[
+              "mkdir -p /var/www/todo-frontend.vizzapps"
+              "rm -rf /var/www/todo-frontend.vizzapps/*",
+              "cp -r ./build/* /var/www/todo-frontend.vizzapps/"
+            ]
+        env:
+          AWS_REGION: eu-north-1
