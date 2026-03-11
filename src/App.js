@@ -17,7 +17,7 @@ function App() {
 
   useEffect(() => {
     getTodos();
-  }, []);
+  }, [getTodos]);
 
   const handleAddOrUpdate = async () => {
     if (!task.trim()) return;
