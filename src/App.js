@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "./App.css";
 
@@ -10,14 +10,15 @@ function App() {
   // use environment variable or default to relative path so proxy works
   const API_URL = process.env.REACT_APP_API_URL || "/api";
 
-  const getTodos = async () => {
+  // Wrap getTodos in useCallback so it's stable across renders
+  const getTodos = useCallback(async () => {
     const res = await axios.get(`${API_URL}/todos`);
     setTodos(res.data);
-  };
+  }, [API_URL]);
 
   useEffect(() => {
     getTodos();
-  }, [getTodos]);
+  }, [getTodos]); // safe now
 
   const handleAddOrUpdate = async () => {
     if (!task.trim()) return;
