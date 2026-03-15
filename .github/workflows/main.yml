@@ -1,7 +1,7 @@
 name: Frontend Deployment Pipeline (SSH)
 
 on:
-  workflow_dispatch:  # manual trigger
+  workflow_dispatch:
 
 jobs:
   ci:
@@ -11,34 +11,29 @@ jobs:
       contents: read
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # 3️⃣ Install dependencies
       - name: Install Dependencies
         run: npm install
 
-      # 4️⃣ Build React App
       - name: Build React App
         run: npm run build
 
-      # 5️⃣ Zip build folder for transfer
       - name: Zip Build Folder
         run: zip -r frontend-build.zip build
 
-      # 6️⃣ Upload artifact for CD job
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: frontend-build.zip
+
 
   cd:
     name: Deploy via SSH
@@ -46,22 +41,33 @@ jobs:
     needs: ci
 
     steps:
-      # 1️⃣ Download artifact from CI job
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend-build
           path: ./frontend-build
 
-      # 2️⃣ Copy build to EC2 via SCP
+      # ✅ CREATE KEY FILE FROM SECRET
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      # ✅ ADD HOST TO KNOWN HOSTS
+      - name: Add EC2 to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H 13.63.181.66 >> ~/.ssh/known_hosts
+
+      # ✅ COPY BUILD TO SERVER
       - name: Copy build to EC2
         run: |
-          scp -o StrictHostKeyChecking=no -i ${{ secrets.EC2_SSH_KEY }} ./frontend-build/frontend-build.zip ubuntu@13.63.181.66:/home/ubuntu/frontend-build.zip
+          scp -i key.pem ./frontend-build/frontend-build.zip ubuntu@13.63.181.66:/home/ubuntu/frontend-build.zip
 
-      # 3️⃣ Deploy frontend on EC2 via SSH
-      - name: Deploy frontend on EC2
+      # ✅ DEPLOY BUILD
+      - name: Deploy frontend
         run: |
-          ssh -o StrictHostKeyChecking=no -i ${{ secrets.EC2_SSH_KEY }} ubuntu@13.63.181.66 << 'EOF'
+          ssh -i key.pem ubuntu@13.63.181.66 << 'EOF'
           sudo rm -rf /var/www/todo-frontend.vizzapps
           sudo unzip -o /home/ubuntu/frontend-build.zip -d /var/www/todo-frontend.vizzapps
           sudo chown -R www-data:www-data /var/www/todo-frontend.vizzapps
